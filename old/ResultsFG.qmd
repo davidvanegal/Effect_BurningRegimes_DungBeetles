@@ -1,0 +1,101 @@
+---
+title: "Análisis de datos"
+subtitle: "Grupos funcionales"
+author: "David Vanegas-Alarcón"
+format:
+  #html:
+  pdf:
+  #docx: 
+    theme: Minty
+    light: flatly
+    fontsize: 9pt
+editor: visual
+date: "`r Sys.Date()`"
+date-format: long
+---
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+# Load necessary library
+library(dplyr)
+library(tidyr)
+library(car)
+library(ggplot2)
+```
+
+```{r echo=FALSE}
+# Read data
+data <- read.csv("RelAbund.csv", sep = ";")
+
+data2 <- data[,2:20]
+
+data_transformed <- data2  |> 
+  mutate(across(everything(), ~ round(. * 100, 0)))
+
+data_transformed$BurningRegime <- data$BurningRegime
+
+```
+
+```{r warning=FALSE, message=FALSE, echo=FALSE}
+ovsDB <- list()
+tuksDB <- list()
+shapDB <- list()
+LevDB <- list()
+modDB <- list()
+for (i in 1:19) {
+  x <- names(data_transformed)[i]
+  dataST <- 
+    data_transformed |> 
+    pivot_longer(cols = c(x), 
+               names_to = "Types", 
+               values_to = "Total") |> 
+    select(c(BurningRegime, Total))
+  
+  # Perform ANOVA
+  anova_result <- aov(Total ~ BurningRegime, data = dataST)
+  
+  # Summary of results
+  aovRes <- summary(anova_result)
+  # Perform Tukey HSD test
+  TukRes <- TukeyHSD(anova_result)
+  
+  ShapT <- shapiro.test(residuals(anova_result))
+  
+  LevT <- leveneTest(Total ~ BurningRegime, data = dataST)
+  
+  modDB <- c(modDB, list(anova_result))
+  ovsDB <- c(ovsDB, list(aovRes))
+  tuksDB <- c(tuksDB, list(TukRes))
+  shapDB <- c(shapDB, list(ShapT))
+  LevDB <- c(LevDB, list(LevT))
+  
+}
+
+for (j in 1:19) {
+  y <- names(data_transformed)[1:19]
+  print("#######################################################################")
+  print("                                 ")
+  print("                                 ")
+  print(y[j])
+  print("                                 ")
+  print("                                 ")
+  print("#######################################################################")
+  print("                                 ")
+  print("                                 ")
+  print("Modelo test")
+  print(ovsDB[j])
+  print("Post hoc Test")
+  print(tuksDB[j])
+  print("Shapiro Test")
+  print(shapDB[j])
+  print("Levene Test")
+  print(LevDB[j])
+  
+  modDB2 <- data.frame(fitted = fitted(anova_result), 
+                       residuales = residuals(anova_result))
+  print(ggplot(aes(x = fitted, y = residuales), data = modDB2) +
+  geom_point() +
+  geom_hline(yintercept = 0, linetype = "dashed", color = "red") +
+  ggtitle("Gráfico de residuos vs valores ajustados"))
+  
+  }
+```

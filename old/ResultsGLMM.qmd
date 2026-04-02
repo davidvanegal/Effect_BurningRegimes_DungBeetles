@@ -1,0 +1,129 @@
+---
+title: "Análisis de datos"
+subtitle: "Grupos funcionales"
+author: "David Vanegas-Alarcón"
+format:
+  #html:
+  pdf:
+  #docx: 
+    theme: Minty
+    light: flatly
+    fontsize: 9pt
+editor: visual
+date: "`r Sys.Date()`"
+date-format: long
+---
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+library(multcomp) # Simultaneous Inference in General Parametric Models CRAN v1.4-25
+library(lme4) # Linear Mixed-Effects Models using 'Eigen' and S4 CRAN v1.1-36 # Linear Mixed-Effects Models using 'Eigen' and S4 CRAN v1.1-35.2
+library(lmtest) # Testing Linear Regression Models CRAN v0.9-40
+library(lattice) # Trellis Graphics for R CRAN v0.21-9 
+library(tidyverse) # Easily Install and Load the 'Tidyverse' CRAN v2.0.0 
+library(emmeans) # Estimated Marginal Means, aka Least-Squares Means CRAN v1.10.1
+library(psych) # Procedures for Psychological, Psychometric, and Personality Research CRAN v2.4.3
+library(performance) # Assessment of Regression Models Performance CRAN v0.13.0
+library(MASS) # Support Functions and Datasets for Venables and Ripley's MASS CRAN v7.3-60
+library(lme4) # Linear Mixed-Effects Models using 'Eigen' and S4 CRAN v1.1-36
+```
+
+```{r echo=FALSE}
+# Read data
+GLMMDB <- read.csv("Data.csv",  sep = ";") 
+
+# Convert factor -----
+GLMMDB$BurningRegime <- factor(GLMMDB$BurningRegime, levels = c("Null", 
+                                                          "Low",
+                                                          "High"))
+GLMMDB$GrazingEnviroments <- factor(GLMMDB$GrazingEnviroments, 
+                                    levels = c("SecondaryForest", 
+                                                "BiodiversePastures",
+                                                "GrassMonoculture"))
+```
+
+```{r warning=FALSE, message=FALSE, echo=FALSE}
+aovs <- list()
+models <- list()
+ovsDB <- list()
+resDB <- list()
+tuksDB <- list()
+
+# lmer function
+for (i in 4:7) {
+  x <- names(GLMMDB)[i]
+  modNull <- as.formula(paste(x, paste("1 +  (1 | GrazingEnviroments)"), 
+                          sep=" ~ "))
+  mod <- as.formula(paste(x, paste("BurningRegime +  (1 | GrazingEnviroments)"), 
+                          sep=" ~ "))
+  DBNull <-  lmer(formula = modNull, data = GLMMDB)
+  DB <-  lmer(formula = mod, data = GLMMDB)
+  anvNull <- anova(DBNull, DB)
+  tukDB <- glht(DB, linfct = mcp(BurningRegime = "Tukey"))
+  
+  SumDB <- summary(DB)
+  SumTukDB <- summary(tukDB)
+  ov <- check_overdispersion(DB)
+  res <- check_residuals(DB)
+  
+  models <- c(models, list(SumDB))
+  aovs <- c(aovs, list(anvNull))
+  ovsDB <- c(ovsDB, list(ov))
+  resDB <- c(resDB, list(res))
+  tuksDB <- c(tuksDB, list(SumTukDB))
+}
+
+# glmer.nb function
+for (i in 8:dim(GLMMDB)[2]) {
+  x <- names(GLMMDB)[i]
+  modNull <- as.formula(paste(x, paste("1 +  (1 | GrazingEnviroments)"), 
+                          sep=" ~ "))
+  mod <- as.formula(paste(x, paste("BurningRegime +  (1 | GrazingEnviroments)"), 
+                          sep=" ~ "))
+  DBNull <-  glmer.nb(formula = modNull, family = poisson(),
+                  data = GLMMDB)
+  DB <-  glmer.nb(formula = mod, family = poisson(),
+                    data = GLMMDB)
+  anvNull <- anova(DBNull, DB)
+  tukDB <- glht(DB, linfct = mcp(BurningRegime = "Tukey"))
+  
+  SumDB <- summary(DB)
+  SumTukDB <- summary(tukDB)
+  ov <- check_overdispersion(DB)
+  res <- check_residuals(DB)
+  
+  models <- c(models, list(SumDB))
+  aovs <- c(aovs, list(anvNull))
+  ovsDB <- c(ovsDB, list(ov))
+  resDB <- c(resDB, list(res))
+  tuksDB <- c(tuksDB, list(SumTukDB))
+}
+
+```
+
+Print results
+
+```{r echo=FALSE}
+k <- dim(GLMMDB)[2] - 3
+for (j in 1:k) {
+  y <- names(GLMMDB)[4:dim(GLMMDB)[2]]
+  print("#######################################################################")
+  print("                                 ")
+  print("                                 ")
+  print(y[j])
+  print("                                 ")
+  print("                                 ")
+  print("#######################################################################")
+  print("                                 ")
+  print("                                 ")
+  print("Modelo test")
+  print(aovs[j])
+  print("Summary model")
+  print(models[j])
+  print("Post hoc Test")
+  print(tuksDB[j])
+  print("Check Overdispertion")
+  print(ovsDB[j])
+  print("Check Residuals")
+  print(resDB[j])
+  }
+```
